@@ -26,13 +26,27 @@ void Sensors::SetupRelayPin(const int relayPin)
 {
 	this->relayPin = relayPin;
 	pinMode(relayPin, OUTPUT);
-	digitalWrite(relayPin, LOW);
-	relayState = false;
+	SetRelayOutput();
+	UpdateRelayState();
 }
 
 void Sensors::ToggleRelay()
 {
 	relayState = !relayState;
+	SetRelayOutput();
+	UpdateRelayState(); // Maybe the change didn't go through, check it
+}
+
+void Sensors::UpdateRelayState()
+{
+	if (digitalRead(relayPin) == HIGH)
+		relayState = true;
+	else
+		relayState = false;
+}
+
+void Sensors::SetRelayOutput()
+{
 	if(relayState)
 		digitalWrite(relayPin, HIGH);
 	else

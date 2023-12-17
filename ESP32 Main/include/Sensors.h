@@ -15,19 +15,21 @@
 class Sensors 
 {
 	public:
+		void SetupRelayPin(int relayPin);
 		void SetupCurrentSensor(const int sensorNumber, ACS712_type sensorType, const int sensorPin);
 		void SetupDallasTempSensor(const int sensorPin);
 		void SetupSHT3xTempSensor();
 		void SetupHX711WeightSensor();
-		void SetupRelayPin(int relayPin);
+		
 		void ToggleRelay();
+		void UpdateRelayState();
+		void SetRelayOutput();
 
+		bool GetRelayState() const;
 		float GetCurrent(const int sensorNumber, const int numMeasurements) const;
 		float GetDallasTemp(const int numMeasurements);
 		float* GetSHT3xTempHumidity(const int numMeasurements) const;
 		float GetWeight(const int numMeasurements) const;
-		bool GetRelayState() const;
-
 	private:
 		//Adafruit_SHT31 sht31 = Adafruit_SHT31();
 		//HX711 scale;
@@ -38,7 +40,7 @@ class Sensors
 		DallasTemperature dallasSensor;
 
 		int relayPin;
-		bool relayState; // false = LOW, true = HIGH
+		bool relayState = false; // false = LOW, true = HIGH
 };
 
 #endif

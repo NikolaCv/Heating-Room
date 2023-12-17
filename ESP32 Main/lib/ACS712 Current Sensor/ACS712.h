@@ -19,7 +19,7 @@ public:
 	void setZeroPoint(int _zero);
 	void setSensitivity(float sens);
 	float getCurrentDC();
-	float getCurrentAC(uint16_t frequency = 50);	// Modified
+	float getCurrentAC(uint16_t frequency = 50) const;	// Modified
 
 private:
 	float currentOffset = 0;	// Added

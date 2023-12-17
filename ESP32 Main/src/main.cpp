@@ -10,7 +10,7 @@
 #include "ACS712.h"
 #include "Configuration/Secrets.h"
 #include "Configuration/DefaultConfig.h"
-#include "../../Common/SerialJson.h"
+#include "SerialJson.h"
 
 #define SHT3X_ADDRESS 0x44
 #define LOAD_CELL_DOUT 35
@@ -119,14 +119,6 @@ void setup()
 	ReconnectMqtt();
 
 	SetupInterruptTimer();
-
-	currentSensor1.calibrateAC();
-	currentSensor2.calibrateAC();
-
-	DallasSensor.begin();
-
-	pinMode(RELAY_PIN, OUTPUT);
-	digitalWrite(RELAY_PIN, LOW);
 }
 
 void loop()
@@ -195,6 +187,7 @@ void ReadFromFlapObserver()
 			case 'S': // ESP Flap Observer SENT current config values, publish them
 			{
 				StaticJsonDocument<200> jsonDocument = SerialJson::ReadJson(Serial);
+					if (SerialJson::ValidConfig(jsonDocument))
 				// FIXME staviti u vrednosti koje treba i publish
 				break;
 			}
@@ -312,34 +305,3 @@ void callback(char* topic, byte* payload, unsigned int length)
 	Serial.println();
 }
 
-float GetCurrent(ACS712 sensor, int numMeasurements)
-{
-	float I = 0;
-
-	for (int i = 0; i < numMeasurements; ++i)
-		I += sensor.getCurrentAC();
-
-	return I / numMeasurements;
-}
-
-float GetDallasTemp(DallasTemperature DallasSensor, int numMeasurements)
-{
-	DallasSensor.requestTemperatures();
-	float temp = 0;
-
-	for (int i = 0; i < numMeasurements; ++i)
-		temp += DallasSensor.getTempCByIndex(0);
-
-	return temp / numMeasurements;
-}
-
-/*float* GetSHT3xTempHumidity(int sensorPin, int numMeasurements)
-{
-	
-}
-
-float GetWeight(int sensorPin, int numMeasurements)
-{
-
-}*/
-		

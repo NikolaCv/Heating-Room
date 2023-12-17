@@ -64,7 +64,7 @@ float ACS712::getCurrentDC() {
 	return I;
 }
 
-float ACS712::getCurrentAC(uint16_t frequency) {
+float ACS712::getCurrentAC(uint16_t frequency) const {
 	uint32_t period = 1000000 / frequency;
 	uint32_t t_start = micros();
 

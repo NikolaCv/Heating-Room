@@ -61,6 +61,8 @@ ako npr. sht nije povezan ignorisi ga da ne bude errora
 
 void IRAM_ATTR PublishSensorData();
 void SetupInterruptTimer();
+void IRAM_ATTR InterruptTimerCallback();
+void PublishSensorData();
 
 void ReconnectWiFi();
 void SetupMqttClient();
@@ -90,6 +92,7 @@ OneWire oneWire(DS18B20_PIN);
 DallasTemperature DallasSensor(&oneWire);
 
 int samplingRateSeconds = DefaultConfig::samplingRateSeconds;
+bool publishSensorData = false;
 
 int vibrationResetMqttSeconds = DefaultConfig::vibrationResetMqttSeconds;
 int lastVibrationTime = 0;
@@ -135,15 +138,26 @@ void loop()
 	
 	mqttClient.loop();
 
-	ReadFromFlapObserver();
+	//PublishSensorData();
+	//ReadFromFlapObserver();
 }
 
-void IRAM_ATTR PublishSensorData()
+void IRAM_ATTR InterruptTimerCallback()
+{
+	publishSensorData = true;
+}
+
+void PublishSensorData()
+{
+	if (publishSensorData)
 {
 	PublishMessage("heating_room/burner", String(GetCurrent(currentSensor1, 20), 2));
 	PublishMessage("heating_room/pump", String(GetCurrent(currentSensor2, 20), 2));
 
 	PublishMessage("heating_room/furnace/temp", String(GetDallasTemp(DallasSensor, 3), 2));
+
+		publishSensorData = false;
+	}
 }
 
 void ReadFromFlapObserver()
@@ -201,7 +215,7 @@ void ReadFromFlapObserver()
 void SetupInterruptTimer()
 {
 	mqttTimer = timerBegin(0, 80, true);
-	timerAttachInterrupt(mqttTimer, &PublishSensorData, true);
+	timerAttachInterrupt(mqttTimer, &InterruptTimerCallback, true);
 	timerAlarmWrite(mqttTimer, samplingRateSeconds * 1000000, true);
 	timerAlarmEnable(mqttTimer);
 }

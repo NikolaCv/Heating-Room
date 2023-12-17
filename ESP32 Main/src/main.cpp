@@ -31,32 +31,21 @@
 
 
 /* TODO
-preko wifi moze da mu se da novi config
-dugme za reset na default (hard kodovan default)
-dugme za SEND new config
-relay switch
 
 topics:
-heating_room/relay/control
-heating_room/relay/state
+heating_room/relay/control => sub
+heating_room/relay/state   => pub
 
-heating_room/config/reset
-heating_room/config/update
-heating_room/config
+heating_room/config/reset  => sub
+heating_room/config/update => sub
+heating_room/config		   => pub
 
-Prilikom reseta treba da se prikazu vrednosti u HA
-tj. kada se uradi reset klapna salje svoje vrednosti, pa onda main salje sve na 
-
-TODO
-sub na mqtt topice
-kad stigne config update i prosledi na flap observer
-
-za relay kad stigne promeni stanje
-state update i publish nakon toga
+Prilikom reseta/update treba da se prikazu vrednosti u HA (3 prikaza mozda, default, current, set new)
+request => main update, main prosledi klapni => klapna update i vrati => main publish na heating_room/config
 
 TODO
-proveriti redom koji senzori su povezani a koji ne (bool json?)
-ako npr. sht nije povezan ignorisi ga da ne bude errora
+u svakom get sensor, i u svakom setup sensor treba proveriti da li je senzor prikljucen
+(osim za ACS712, i mozda za Dallas)
 
 */
 

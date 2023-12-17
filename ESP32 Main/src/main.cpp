@@ -1,4 +1,3 @@
-#include <Wire.h>
 #include <Adafruit_SHT31.h>
 #include <HX711.h>
 #include <OneWire.h>
@@ -59,7 +58,6 @@ ako npr. sht nije povezan ignorisi ga da ne bude errora
 
 */
 
-void IRAM_ATTR PublishSensorData();
 void SetupInterruptTimer();
 void IRAM_ATTR InterruptTimerCallback();
 void PublishSensorData();
@@ -68,6 +66,8 @@ void ReconnectWiFi();
 void SetupMqttClient();
 void ReconnectMqtt();
 void PublishMessage(String topic, String message, bool serialPrint = false);
+
+void callback(char* topic, byte* payload, unsigned int length);
 
 void ReadFromFlapObserver();
 void SendToFlapObserver();
@@ -115,10 +115,10 @@ void setup()
 	Serial.begin(9600);
 	ReconnectWiFi();
 
-    SetupMqttClient();
+	SetupMqttClient();
 	ReconnectMqtt();
 
-    SetupInterruptTimer();
+	SetupInterruptTimer();
 
 	currentSensor1.calibrateAC();
 	currentSensor2.calibrateAC();
@@ -150,18 +150,18 @@ void IRAM_ATTR InterruptTimerCallback()
 void PublishSensorData()
 {
 	if (publishSensorData)
-{
-	PublishMessage("heating_room/burner", String(GetCurrent(currentSensor1, 20), 2));
-	PublishMessage("heating_room/pump", String(GetCurrent(currentSensor2, 20), 2));
+	{
+		PublishMessage("heating_room/burner", String(GetCurrent(currentSensor1, 20), 2));
+		PublishMessage("heating_room/pump", String(GetCurrent(currentSensor2, 20), 2));
 
-	PublishMessage("heating_room/furnace/temp", String(GetDallasTemp(DallasSensor, 3), 2));
+		PublishMessage("heating_room/furnace/temp", String(GetDallasTemp(DallasSensor, 3), 2));
 
 		publishSensorData = false;
 	}
 }
 
 void ReadFromFlapObserver()
-{	
+{
 	if(currTime - lastVibrationTime > vibrationResetMqttSeconds * 1000)
 		PublishMessage("heating_room/flap/vibration", String(0));
 	
@@ -195,8 +195,7 @@ void ReadFromFlapObserver()
 			case 'S': // ESP Flap Observer SENT current config values, publish them
 			{
 				StaticJsonDocument<200> jsonDocument = SerialJson::ReadJson(Serial);
-				if (SerialJson::ValidConfig(jsonDocument))
-					// FIXME staviti u vrednosti koje treba i publish
+				// FIXME staviti u vrednosti koje treba i publish
 				break;
 			}
 
@@ -226,21 +225,22 @@ void ReconnectWiFi()
 {
 	if(WiFi.status() == WL_CONNECTED) return;
 
-    WiFi.begin(Secrets::wifiSSID, Secrets::wifiPassword);
+	WiFi.begin(Secrets::wifiSSID, Secrets::wifiPassword);
 
-    while (WiFi.status() != WL_CONNECTED)
+	while (WiFi.status() != WL_CONNECTED)
 	{
-        Serial.println("Connecting to WiFi...");
-        delay(1000);
-    }
+		Serial.println("Connecting to WiFi...");
+		delay(1000);
+	}
 
-    Serial.println("Connected to WiFi");
+	Serial.println("Connected to WiFi");
 }
 
 void SetupMqttClient()
 {
-    mqttClient.setServer(Secrets::mqttServerIP, Secrets::mqttPort);
-    mqttClient.setKeepAlive(60);
+	mqttClient.setServer(Secrets::mqttServerIP, Secrets::mqttPort);
+	mqttClient.setKeepAlive(60);
+	mqttClient.setCallback(callback);
 }
 
 void ReconnectMqtt()
@@ -253,6 +253,9 @@ void ReconnectMqtt()
 		if (mqttClient.connect("ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword))
 		{
 			Serial.println("Connected to MQTT broker");
+			mqttClient.subscribe("heating_room/relay/control");
+			mqttClient.subscribe("heating_room/config/reset");
+			mqttClient.subscribe("heating_room/config/update");
 		}
 		else
 		{
@@ -272,6 +275,41 @@ void PublishMessage(String topic, String message, bool serialPrint)
 
 		if(serialPrint) Serial.println(topic + "\t" + message);
 	}
+}
+
+void callback(char* topic, byte* payload, unsigned int length)
+{
+	Serial.print("Message arrived on topic: ");
+	Serial.println(topic);
+
+	
+	String jsonString;
+
+    for (int i = 0; i < length; i++)
+	{
+        char incomingChar = (char)payload[i];
+        jsonString += incomingChar;
+    }
+
+    StaticJsonDocument<200> jsonDocument;
+    DeserializationError error = deserializeJson(jsonDocument, jsonString);
+
+    if (error)
+	{
+        Serial.print(F("Parsing failed: "));
+        Serial.println(error.c_str());
+    }
+	if (SerialJson::ValidConfig(jsonDocument))
+    for (JsonPair kv : jsonDocument.as<JsonObject>())
+    {
+        Serial.print(kv.key().c_str());
+        Serial.print(": ");
+
+        Serial.println(kv.value().as<int>());
+        // Add more branches for other data types as needed
+	}
+
+	Serial.println();
 }
 
 float GetCurrent(ACS712 sensor, int numMeasurements)

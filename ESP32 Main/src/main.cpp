@@ -10,7 +10,9 @@
 #include "ACS712.h"
 #include "Configuration/Secrets.h"
 #include "Configuration/DefaultConfig.h"
-#include "SerialJson.h"
+#include "../../Common/SerialJson.h"
+#include "MqttCommunication.h"
+#include "Sensors.h"
 
 #define SHT3X_ADDRESS 0x44
 #define LOAD_CELL_DOUT 35
@@ -63,19 +65,10 @@ void IRAM_ATTR InterruptTimerCallback();
 void PublishSensorData();
 
 void ReconnectWiFi();
-void SetupMqttClient();
-void ReconnectMqtt();
-void PublishMessage(String topic, String message, bool serialPrint = false);
-
-void callback(char* topic, byte* payload, unsigned int length);
+void SetupMqtt(MqttCommunication mqtt);
 
 void ReadFromFlapObserver();
 void SendToFlapObserver();
-
-float GetCurrent(ACS712 sensor, int numMeasurements);
-float GetDallasTemp(DallasTemperature DallasSensor, int numMeasurements);
-/*float* GetSHT3xTempHumidity(int sensorPin, int numMeasurements);
-float GetWeight(int sensorPin, int numMeasurements);*/
 
 hw_timer_t* mqttTimer = NULL;
 
@@ -83,13 +76,9 @@ hw_timer_t* mqttTimer = NULL;
 //HX711 scale;
 
 WiFiClient espClient;
-PubSubClient mqttClient(espClient);
-
-ACS712 currentSensor1(ACS712_30A, ACS712_1_PIN);
-ACS712 currentSensor2(ACS712_30A, ACS712_2_PIN);
-
-OneWire oneWire(DS18B20_PIN);
-DallasTemperature DallasSensor(&oneWire);
+MqttCommunication mqtt(espClient, Secrets::mqttServerIP, Secrets::mqttPort,
+					"ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword);
+Sensors sensors;
 
 int samplingRateSeconds = DefaultConfig::samplingRateSeconds;
 bool publishSensorData = false;
@@ -114,9 +103,7 @@ void setup()
 {	
 	Serial.begin(9600);
 	ReconnectWiFi();
-
-	SetupMqttClient();
-	ReconnectMqtt();
+	SetupMqtt(mqtt);
 
 	SetupInterruptTimer();
 }
@@ -125,19 +112,37 @@ void loop()
 {
 	currTime = millis();
 
-	ReconnectMqtt();
 	ReconnectWiFi();
+	mqtt.Reconnect();
 	
-	mqttClient.loop();
+	mqtt.Loop();
 
 	//PublishSensorData();
 	//ReadFromFlapObserver();
+}
+
+void SetupMqtt(MqttCommunication mqtt)
+{
+	mqtt.Setup();
+	mqtt.AddSubscribeTopic("heating_room/relay/control");
+	mqtt.AddSubscribeTopic("heating_room/config/reset");
+	mqtt.AddSubscribeTopic("heating_room/config/update");
+	mqtt.Reconnect();
+}
+
+void SetupInterruptTimer()
+{
+	mqttTimer = timerBegin(0, 80, true);
+	timerAttachInterrupt(mqttTimer, &InterruptTimerCallback, true);
+	timerAlarmWrite(mqttTimer, samplingRateSeconds * 1000000, true);
+	timerAlarmEnable(mqttTimer);
 }
 
 void IRAM_ATTR InterruptTimerCallback()
 {
 	publishSensorData = true;
 }
+
 
 void PublishSensorData()
 {
@@ -204,14 +209,6 @@ void ReadFromFlapObserver()
 	}
 }
 
-void SetupInterruptTimer()
-{
-	mqttTimer = timerBegin(0, 80, true);
-	timerAttachInterrupt(mqttTimer, &InterruptTimerCallback, true);
-	timerAlarmWrite(mqttTimer, samplingRateSeconds * 1000000, true);
-	timerAlarmEnable(mqttTimer);
-}
-
 void ReconnectWiFi() 
 // FIXME
 // ako ce i offline da skuplja podatke ne treba da se u infinite while vrti
@@ -228,80 +225,3 @@ void ReconnectWiFi()
 
 	Serial.println("Connected to WiFi");
 }
-
-void SetupMqttClient()
-{
-	mqttClient.setServer(Secrets::mqttServerIP, Secrets::mqttPort);
-	mqttClient.setKeepAlive(60);
-	mqttClient.setCallback(callback);
-}
-
-void ReconnectMqtt()
-// FIXME
-// ako ce i offline da skuplja podatke ne treba da se u infinite while vrti
-{
-	while (!mqttClient.connected())
-	{
-		Serial.println("Attempting MQTT connection...");
-		if (mqttClient.connect("ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword))
-		{
-			Serial.println("Connected to MQTT broker");
-			mqttClient.subscribe("heating_room/relay/control");
-			mqttClient.subscribe("heating_room/config/reset");
-			mqttClient.subscribe("heating_room/config/update");
-		}
-		else
-		{
-			Serial.print("Failed, rc=");
-			Serial.print(mqttClient.state());
-			Serial.println(" Retrying in 5 seconds...");
-			delay(5000);
-		}
-	}
-}
-
-void PublishMessage(String topic, String message, bool serialPrint)
-{
-	if (mqttClient.connected())
-	{
-		mqttClient.publish(topic.c_str(), message.c_str());
-
-		if(serialPrint) Serial.println(topic + "\t" + message);
-	}
-}
-
-void callback(char* topic, byte* payload, unsigned int length)
-{
-	Serial.print("Message arrived on topic: ");
-	Serial.println(topic);
-
-	
-	String jsonString;
-
-    for (int i = 0; i < length; i++)
-	{
-        char incomingChar = (char)payload[i];
-        jsonString += incomingChar;
-    }
-
-    StaticJsonDocument<200> jsonDocument;
-    DeserializationError error = deserializeJson(jsonDocument, jsonString);
-
-    if (error)
-	{
-        Serial.print(F("Parsing failed: "));
-        Serial.println(error.c_str());
-    }
-	if (SerialJson::ValidConfig(jsonDocument))
-    for (JsonPair kv : jsonDocument.as<JsonObject>())
-    {
-        Serial.print(kv.key().c_str());
-        Serial.print(": ");
-
-        Serial.println(kv.value().as<int>());
-        // Add more branches for other data types as needed
-	}
-
-	Serial.println();
-}
-

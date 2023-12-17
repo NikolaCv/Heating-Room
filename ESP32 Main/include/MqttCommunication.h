@@ -12,7 +12,7 @@ class MqttCommunication
 						  const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword);
 		void Setup();
 		void Reconnect();
-		void PublishMessage(String topic, String message, bool serialPrint);
+		void PublishMessage(String topic, String message, bool serialPrint = false);
 		void SubscribeCallback(char* topic, byte* payload, unsigned int length);
 		void AddSubscribeTopic(const char* topic);
 		void SubscribeToTopic(const char* topic);

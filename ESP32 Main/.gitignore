@@ -4,4 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 Secrets.cpp
-platform.ini
+platformio.ini

@@ -1,13 +1,12 @@
 #include "Sensors.h"
 
-
-void Sensors::SetupCurrentSensor(int sensorNumber, ACS712_type sensorType, int sensorPin)
+void Sensors::SetupCurrentSensor(const int sensorNumber, ACS712_type sensorType, const int sensorPin)
 {
 	currentSensor[sensorNumber] = ACS712(sensorType, sensorPin);
 	currentSensor[sensorNumber].calibrateAC();
 }
 
-void Sensors::SetupDallasTempSensor(int sensorPin)
+void Sensors::SetupDallasTempSensor(const int sensorPin)
 {
 	oneWire = OneWire(sensorPin);
 	dallasSensor = DallasTemperature(&oneWire);
@@ -23,7 +22,7 @@ void Sensors::SetupHX711WeightSensor()
 {
 	// TODO
 }
-void Sensors::SetupRelayPin(int relayPin)
+void Sensors::SetupRelayPin(const int relayPin)
 {
 	this->relayPin = relayPin;
 	pinMode(relayPin, OUTPUT);
@@ -40,7 +39,7 @@ void Sensors::ToggleRelay()
 		digitalWrite(relayPin, LOW);
 }
 
-float Sensors::GetCurrent(int sensorNumber, int numMeasurements) const
+float Sensors::GetCurrent(const int sensorNumber, const int numMeasurements) const
 {
 	float I = 0;
 
@@ -50,7 +49,7 @@ float Sensors::GetCurrent(int sensorNumber, int numMeasurements) const
 	return I / numMeasurements;
 }
 
-float Sensors::GetDallasTemp(int numMeasurements)
+float Sensors::GetDallasTemp(const int numMeasurements)
 {
 	dallasSensor.requestTemperatures();
 	float temp = 0;
@@ -61,12 +60,12 @@ float Sensors::GetDallasTemp(int numMeasurements)
 	return temp / numMeasurements;
 }
 
-float* Sensors::GetSHT3xTempHumidity(int numMeasurements) const
+float* Sensors::GetSHT3xTempHumidity(const int numMeasurements) const
 {
 
 }
 
-float Sensors::GetWeight(int numMeasurements) const
+float Sensors::GetWeight(const int numMeasurements) const
 {
 
 }

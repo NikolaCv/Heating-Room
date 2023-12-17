@@ -15,17 +15,17 @@
 class Sensors 
 {
 	public:
-		void SetupCurrentSensor(int sensorNumber, ACS712_type sensorType, int sensorPin);
-		void SetupDallasTempSensor(int sensorPin);
+		void SetupCurrentSensor(const int sensorNumber, ACS712_type sensorType, const int sensorPin);
+		void SetupDallasTempSensor(const int sensorPin);
 		void SetupSHT3xTempSensor();
 		void SetupHX711WeightSensor();
 		void SetupRelayPin(int relayPin);
 		void ToggleRelay();
 
-		float GetCurrent(int sensorNumber, int numMeasurements) const;
-		float GetDallasTemp(int numMeasurements);
-		float* GetSHT3xTempHumidity(int numMeasurements) const;
-		float GetWeight(int numMeasurements) const;
+		float GetCurrent(const int sensorNumber, const int numMeasurements) const;
+		float GetDallasTemp(const int numMeasurements);
+		float* GetSHT3xTempHumidity(const int numMeasurements) const;
+		float GetWeight(const int numMeasurements) const;
 		bool GetRelayState() const;
 
 	private:

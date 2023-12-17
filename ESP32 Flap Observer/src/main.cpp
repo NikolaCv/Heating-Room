@@ -11,7 +11,7 @@ void IRAM_ATTR InterruptVibration();
 void SendTriggeredIR();
 void SendTriggeredVibration();
 void ReadFromMainESP32();
-void SendConfigValues();
+void SendConfigValues(const char code);
 void SetConfigValues(int newDebounceMillisIR, int newDebounceMillisVibration, int newBlockadeThreshold);
 
 const int irSensorPins[] = {25, 33, 32, 35, 34, 39, 26};
@@ -89,7 +89,7 @@ void ReadFromMainESP32()
 	}
 }
 
-void SendConfigValues(char code)
+void SendConfigValues(const char code)
 {
 	Serial.print(code);
 	SerialJson::SendJson(debounceMillisIR, debounceMillisVibration, blockadeThreshold);

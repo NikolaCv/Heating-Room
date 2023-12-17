@@ -35,7 +35,7 @@ class Sensors
 		ACS712 currentSensor[2];
 
 		OneWire oneWire;
-		DallasTemperature DallasSensor;
+		DallasTemperature dallasSensor;
 
 		int relayPin;
 		bool relayState; // false = LOW, true = HIGH

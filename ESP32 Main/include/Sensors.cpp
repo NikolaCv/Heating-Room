@@ -10,8 +10,8 @@ void Sensors::SetupCurrentSensor(int sensorNumber, ACS712_type sensorType, int s
 void Sensors::SetupDallasTempSensor(int sensorPin)
 {
 	oneWire = OneWire(sensorPin);
-	DallasSensor = DallasTemperature(&oneWire);
-	DallasSensor.begin();
+	dallasSensor = DallasTemperature(&oneWire);
+	dallasSensor.begin();
 }
 
 void Sensors::SetupSHT3xTempSensor()
@@ -31,6 +31,15 @@ void Sensors::SetupRelayPin(int relayPin)
 	relayState = false;
 }
 
+void Sensors::ToggleRelay()
+{
+	relayState = !relayState;
+	if(relayState)
+		digitalWrite(relayPin, HIGH);
+	else
+		digitalWrite(relayPin, LOW);
+}
+
 float Sensors::GetCurrent(int sensorNumber, int numMeasurements) const
 {
 	float I = 0;
@@ -43,11 +52,11 @@ float Sensors::GetCurrent(int sensorNumber, int numMeasurements) const
 
 float Sensors::GetDallasTemp(int numMeasurements)
 {
-	DallasSensor.requestTemperatures();
+	dallasSensor.requestTemperatures();
 	float temp = 0;
 
 	for (int i = 0; i < numMeasurements; ++i)
-		temp += DallasSensor.getTempCByIndex(0);
+		temp += dallasSensor.getTempCByIndex(0);
 
 	return temp / numMeasurements;
 }

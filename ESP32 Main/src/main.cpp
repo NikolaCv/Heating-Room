@@ -66,6 +66,7 @@ void PublishSensorData();
 
 void ReconnectWiFi();
 void SetupMqtt(MqttCommunication mqtt);
+void SetupSensors(Sensors sensors);
 
 void ReadFromFlapObserver();
 void SendToFlapObserver();
@@ -104,17 +105,15 @@ void setup()
 	Serial.begin(9600);
 	ReconnectWiFi();
 	SetupMqtt(mqtt);
-
+	SetupSensors(sensors);
 	SetupInterruptTimer();
 }
 
 void loop()
 {
 	currTime = millis();
-
 	ReconnectWiFi();
 	mqtt.Reconnect();
-	
 	mqtt.Loop();
 
 	//PublishSensorData();
@@ -130,6 +129,14 @@ void SetupMqtt(MqttCommunication mqtt)
 	mqtt.Reconnect();
 }
 
+void SetupSensors(Sensors sensors)
+{
+	sensors.SetupCurrentSensor(0, ACS712_30A, ACS712_1_PIN);
+	sensors.SetupCurrentSensor(1, ACS712_30A, ACS712_2_PIN);
+	sensors.SetupDallasTempSensor(DS18B20_PIN);
+	sensors.SetupRelayPin(RELAY_PIN);
+}
+
 void SetupInterruptTimer()
 {
 	mqttTimer = timerBegin(0, 80, true);
@@ -143,7 +150,7 @@ void IRAM_ATTR InterruptTimerCallback()
 	publishSensorData = true;
 }
 
-
+// Obsolete FIXME
 void PublishSensorData()
 {
 	if (publishSensorData)
@@ -157,6 +164,7 @@ void PublishSensorData()
 	}
 }
 
+// Obsolete FIXME
 void ReadFromFlapObserver()
 {
 	if(currTime - lastVibrationTime > vibrationResetMqttSeconds * 1000)

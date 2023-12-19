@@ -1,14 +1,20 @@
 #include "MqttCommunication.h"
 
 MqttCommunication::MqttCommunication(WiFiClient wifiClient, const char* mqttServerIP, const int mqttPort,
-									const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword)
+									const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
+									const int samplingRateSeconds, Sensors& sensors)
 : wifiClient(wifiClient), serverIP(mqttServerIP), port(mqttPort),
-  clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword)
+  clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword),
+  sensors(sensors)
 {
+	this->samplingRateSeconds = samplingRateSeconds;
+	publishData = false;
 }
 
-void MqttCommunication::Setup()
+void MqttCommunication::Setup(EspMainSerialCommunication serialComm)
 {
+	this->serialComm = serialComm;
+
 	client.setServer(serverIP, port);
 	client.setKeepAlive(60);
 
@@ -53,8 +59,7 @@ void MqttCommunication::PublishMessage(String topic, String message, bool serial
 
 void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned int length)
 {
-	Serial.print("Message arrived on topic: ");
-	Serial.println(topic);
+	
 }
 
 void MqttCommunication::AddSubscribeTopic(const char *topic)
@@ -70,4 +75,26 @@ void MqttCommunication::SubscribeToTopic(const char *topic)
 void MqttCommunication::Loop()
 {
 	client.loop();
+}
+
+void MqttCommunication::SetupInterruptTimer()
+{
+	interruptTimer = timerBegin(0, 80, true);
+	timerAttachInterrupt(interruptTimer, &InterruptTimerCallback, true);
+	timerAlarmWrite(interruptTimer, samplingRateSeconds * 1000000, true);
+	timerAlarmEnable(interruptTimer);
+}
+
+void IRAM_ATTR MqttCommunication::InterruptTimerCallback()
+{
+	publishData = true;
+}
+
+void MqttCommunication::PublistDataPeriodically(void (&PublishSensorDataFunction)(MqttCommunication mqtt, Sensors sensors))
+{
+	if (publishData)
+	{
+		PublishSensorDataFunction(*this, sensors);
+		publishData = false;
+	}	
 }

@@ -10,9 +10,10 @@
 #include "ACS712.h"
 #include "Configuration/Secrets.h"
 #include "Configuration/DefaultConfig.h"
-#include "../../Common/SerialJson.h"
-#include "MqttCommunication.h"
+
 #include "Sensors.h"
+#include "MqttCommunication.h"
+#include "ESPMainSerialCommunication.h"
 
 #define SHT3X_ADDRESS 0x44
 #define LOAD_CELL_DOUT 35
@@ -65,18 +66,17 @@ hw_timer_t* mqttTimer = NULL;
 //Adafruit_SHT31 sht31 = Adafruit_SHT31();
 //HX711 scale;
 
+Sensors sensors;
 WiFiClient espClient;
 MqttCommunication mqtt(espClient, Secrets::mqttServerIP, Secrets::mqttPort,
-					"ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword);
-Sensors sensors;
+					   "ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword,
+					   DefaultConfig::samplingRateSeconds, sensors);
+EspMainSerialCommunication serialComm(mqtt, DefaultConfig::vibrationResetMqttSeconds, millis(),
+									  "heating_room/flap/vibration",
+									  "heating_room/flap/blockade",
+									  "heating_room/flap/position",
+									  "heating_room/config");
 
-int samplingRateSeconds = DefaultConfig::samplingRateSeconds;
-bool publishSensorData = false;
-
-int vibrationResetMqttSeconds = DefaultConfig::vibrationResetMqttSeconds;
-int lastVibrationTime = 0;
-
-int blockade = 0;
 
 namespace NewConfig // FIXME trenutno placeholder, kada se dobiju novi podaci samo se stave u vec postojece variable
 {
@@ -92,8 +92,10 @@ unsigned long currTime = millis();
 void setup()
 {	
 	Serial.begin(9600);
+
 	ReconnectWiFi();
-	SetupMqtt(mqtt);
+
+	SetupMqtt(mqtt, serialComm);
 	SetupSensors(sensors);
 	SetupInterruptTimer();
 }
@@ -101,17 +103,19 @@ void setup()
 void loop()
 {
 	currTime = millis();
+
 	ReconnectWiFi();
+
 	mqtt.Reconnect();
 	mqtt.Loop();
+	mqtt.PublistDataPeriodically(PublishSensorData);
 
-	//PublishSensorData();
-	//ReadFromFlapObserver();
+	serialComm.ReadFromSerial();
 }
 
-void SetupMqtt(MqttCommunication mqtt)
+void SetupMqtt(MqttCommunication mqtt, EspMainSerialCommunication serialComm)
 {
-	mqtt.Setup();
+	mqtt.Setup(serialComm);
 	mqtt.AddSubscribeTopic("heating_room/relay/control");
 	mqtt.AddSubscribeTopic("heating_room/config/reset");
 	mqtt.AddSubscribeTopic("heating_room/config/update");
@@ -126,89 +130,16 @@ void SetupSensors(Sensors sensors)
 	sensors.SetupRelayPin(RELAY_PIN);
 }
 
-void SetupInterruptTimer()
-{
-	mqttTimer = timerBegin(0, 80, true);
-	timerAttachInterrupt(mqttTimer, &InterruptTimerCallback, true);
-	timerAlarmWrite(mqttTimer, samplingRateSeconds * 1000000, true);
-	timerAlarmEnable(mqttTimer);
+void PublishSensorData(MqttCommunication mqtt, Sensors sensors)
+{		
+	mqtt.PublishMessage("heating_room/burner", String(sensors.GetCurrent(0, 20), 2));
+	mqtt.PublishMessage("heating_room/pump", String(sensors.GetCurrent(1, 20), 2));
+
+	mqtt.PublishMessage("heating_room/furnace/temp", String(sensors.GetDallasTemp(5), 2));
 }
 
-void IRAM_ATTR InterruptTimerCallback()
-{
-	publishSensorData = true;
-}
-
-// Obsolete FIXME
-void PublishSensorData()
-{
-	if (publishSensorData)
-	{
-		PublishMessage("heating_room/burner", String(GetCurrent(currentSensor1, 20), 2));
-		PublishMessage("heating_room/pump", String(GetCurrent(currentSensor2, 20), 2));
-
-		PublishMessage("heating_room/furnace/temp", String(GetDallasTemp(DallasSensor, 3), 2));
-
-		publishSensorData = false;
-	}
-}
-
-// Obsolete FIXME
-void ReadFromFlapObserver()
-{
-	if(currTime - lastVibrationTime > vibrationResetMqttSeconds * 1000)
-		PublishMessage("heating_room/flap/vibration", String(0));
-	
-	while (Serial.available() > 0)
-	{
-		char incomingChar = Serial.read();
-		Serial.println(incomingChar);
-
-		switch (incomingChar)
-		{
-			case 'V': // Vibration
-			{
-				PublishMessage("heating_room/flap/vibration", String(1));
-				lastVibrationTime = millis();
-
-				if (blockade)
-				{
-					blockade = 0;
-					PublishMessage("heating_room/flap/blockade", String(blockade));
-				}
-				break;
-			}
-
-			case 'X': // Blockade
-			{
-				blockade = 1;
-				PublishMessage("heating_room/flap/blockade", String(blockade));
-				break;
-			}
-
-			case 'S': // ESP Flap Observer SENT current config values, publish them
-			{
-				StaticJsonDocument<200> jsonDocument = SerialJson::ReadJson(Serial);
-					if (SerialJson::ValidConfig(jsonDocument))
-				// FIXME staviti u vrednosti koje treba i publish
-				break;
-			}
-
-			// TODO: S set new values will be sent in mqtt callback, as well as R for reset, as well as G for get values
-
-			default: // Numbers 0-6 for which IR diode is activated, ignore if not in that range
-			{
-				if (incomingChar >= '0' && incomingChar <= '6')
-					PublishMessage("heating_room/flap/position", String(incomingChar), true);
-				break;
-			}
-		}
-	}
-}
-
+// Rewrite for offline data collecting
 void ReconnectWiFi() 
-// FIXME
-// ako ce i offline da skuplja podatke ne treba da se u infinite while vrti
 {
 	if(WiFi.status() == WL_CONNECTED) return;
 

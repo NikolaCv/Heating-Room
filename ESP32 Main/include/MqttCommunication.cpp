@@ -6,7 +6,7 @@ MqttCommunication::MqttCommunication(WiFiClient wifiClient, const char* mqttServ
 						  			const char* relayControlTopic, const char* configResetTopic, const char* configUpdateTopic)
 : wifiClient(wifiClient), serverIP(mqttServerIP), port(mqttPort),
   clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword),
-  sensors(sensors)
+  sensors(sensors), serial(serial)
 {
 	this->samplingRateSeconds = samplingRateSeconds;
 	publishData = false;
@@ -24,10 +24,10 @@ void MqttCommunication::Setup(EspMainSerialCommunication serialComm)
 	client.setKeepAlive(60);
 
 	auto callbackWrapper = [this](char* topic, byte* payload, unsigned int length) {
-        this->SubscribeCallback(topic, payload, length);
-    };
+		this->SubscribeCallback(topic, payload, length);
+	};
 
-    client.setCallback(callbackWrapper);
+	client.setCallback(callbackWrapper);
 }
 
 void MqttCommunication::Reconnect(Stream& output)
@@ -52,29 +52,41 @@ void MqttCommunication::Reconnect(Stream& output)
 	}
 }
 
-void MqttCommunication::PublishMessage(String topic, String message, bool serialPrint)
+void MqttCommunication::PublishMessage(String topic, String message)
 {
 	if (client.connected())
-	{
 		client.publish(topic.c_str(), message.c_str());
-
-		if(serialPrint) Serial.println(topic + "\t" + message);
-	}
 }
 
 void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned int length)
 {
-	
-}
+	String message;
+	for (unsigned int i = 0; i < length; i++)
+		message += (char)payload[i];
 
-void MqttCommunication::AddSubscribeTopic(const char *topic)
-{
-	subscribeTopics.push_back(topic);
-}
+	if (strcmp(topic, subscribeTopics["Relay Control"]) == 0)
+	{
+		// TODO
+	}
+	else if (strcmp(topic, subscribeTopics["Config Reset"]) == 0)
+	{
+		samplingRateSeconds = DefaultConfig::samplingRateSeconds;
+		serialComm.SendToSerial(serial, 'R'); // 'R'
+		serialComm.ResetVibrationConfigValue();
+	}
+	else if (strcmp(topic, subscribeTopics["Config Update"]) == 0)
+	{
+		StaticJsonDocument<200> jsonDocument;
+		deserializeJson(jsonDocument, message);
 
-void MqttCommunication::SubscribeToTopic(const char *topic)
-{
-	client.subscribe(topic);
+		samplingRateSeconds = jsonDocument["samplingRateSeconds"];
+		serialComm.SetVibrationConfigValue(jsonDocument["vibrationResetMqttSeconds"]);
+
+		jsonDocument.remove("samplingRateSeconds");
+		jsonDocument.remove("vibrationResetMqttSeconds");
+
+		serialComm.SendJsonToSerial(serial, 'S', jsonDocument);
+	}
 }
 
 void MqttCommunication::Loop()
@@ -102,4 +114,9 @@ void MqttCommunication::PublistDataPeriodically(void (&PublishSensorDataFunction
 		PublishSensorDataFunction(*this, sensors);
 		publishData = false;
 	}	
+}
+
+int MqttCommunication::GetSamplingRateSeconds() const
+{
+    return samplingRateSeconds;
 }

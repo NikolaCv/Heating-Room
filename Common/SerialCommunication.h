@@ -6,10 +6,11 @@
 
 class SerialCommunication
 {
-	protected:
-		StaticJsonDocument<200> ReadJson(Stream& input) const;
-		void SendJson(Stream& output, int debounceMillisIR, int debounceMillisVibration, int blockadeThreshold) const;
-		bool ValidConfig(StaticJsonDocument<200>& jsonDocument) const;
+	public:
+		StaticJsonDocument<200> ReadJsonFromSerial(Stream& input) const;
+		void SendToSerial(Stream& outputSerial, char code, String message = "");
+		void SendJsonToSerial(Stream& outputSerial, char code, StaticJsonDocument<200> jsonDocument);
+		
 };
 
 #endif

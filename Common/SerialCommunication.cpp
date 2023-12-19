@@ -1,6 +1,6 @@
 #include "SerialCommunication.h"
 
-StaticJsonDocument<200> SerialCommunication::ReadJson(Stream& input) const
+StaticJsonDocument<200> SerialCommunication::ReadJsonFromSerial(Stream& input) const
 {
     String jsonString;
     while (input.available() > 0)
@@ -10,46 +10,20 @@ StaticJsonDocument<200> SerialCommunication::ReadJson(Stream& input) const
     }
 
     StaticJsonDocument<200> jsonDocument;
-    DeserializationError error = deserializeJson(jsonDocument, jsonString);
-
-    if (error)
-	{
-        input.print(F("Parsing failed: "));
-        input.println(error.c_str());
-        return StaticJsonDocument<200>();
-    }
+    deserializeJson(jsonDocument, jsonString);
 
     return jsonDocument;
 }
 
-void SerialCommunication::SendJson(Stream& output, int debounceMillisIR, int debounceMillisVibration, int blockadeThreshold) const
+void SerialCommunication::SendToSerial(Stream& output, char code, String message)
 {
-  StaticJsonDocument<200> jsonDocument;
-  jsonDocument["debounceMillisIR"] = debounceMillisIR;
-  jsonDocument["debounceMillisVibration"] = debounceMillisVibration;
-  jsonDocument["blockadeThreshold"] = blockadeThreshold;
-
-  String jsonString;
-  serializeJson(jsonDocument, jsonString);
-
-  output.print(jsonString);
+	output.print(code);
+	output.print(message);
 }
 
-bool SerialCommunication::ValidConfig(StaticJsonDocument<200>& jsonDocument) const
+void SerialCommunication::SendJsonToSerial(Stream &outputSerial, char code, StaticJsonDocument<200> jsonDocument)
 {
-	if (jsonDocument.isNull())
-	{
-		//Serial.println("Failed to parse JSON.");
-		return false;
-	}
-
-	if (!jsonDocument.containsKey("debounceMillisIR") ||
-		!jsonDocument.containsKey("debounceMillisVibration") ||
-		!jsonDocument.containsKey("blockadeThreshold"))
-	{
-		//Serial.println("JSON structure is missing some keys.");
-		return false;
-	}
-		
-	return true;
+	String serialMessage;
+	serializeJson(jsonDocument, serialMessage);
+	SendToSerial(outputSerial, code, serialMessage);
 }

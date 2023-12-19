@@ -2,13 +2,18 @@
 
 MqttCommunication::MqttCommunication(WiFiClient wifiClient, const char* mqttServerIP, const int mqttPort,
 									const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
-									const int samplingRateSeconds, Sensors& sensors)
+									const int samplingRateSeconds, Sensors& sensors, Stream& serial,
+						  			const char* relayControlTopic, const char* configResetTopic, const char* configUpdateTopic)
 : wifiClient(wifiClient), serverIP(mqttServerIP), port(mqttPort),
   clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword),
   sensors(sensors)
 {
 	this->samplingRateSeconds = samplingRateSeconds;
 	publishData = false;
+	
+	subscribeTopics["Relay Control"] = relayControlTopic;
+	subscribeTopics["Config Reset"] = configResetTopic;
+	subscribeTopics["Config Update"] = configUpdateTopic;
 }
 
 void MqttCommunication::Setup(EspMainSerialCommunication serialComm)
@@ -25,23 +30,23 @@ void MqttCommunication::Setup(EspMainSerialCommunication serialComm)
     client.setCallback(callbackWrapper);
 }
 
-void MqttCommunication::Reconnect()
+void MqttCommunication::Reconnect(Stream& output)
 {
 	while (!client.connected())
 	{
-		Serial.println("Attempting MQTT connection...");
+		output.println("Attempting MQTT connection...");
 		if (client.connect(clientName, userName, userPassword))
 		{
-			Serial.println("Connected to MQTT broker");
+			output.println("Connected to MQTT broker");
 			
-			for (const auto& topic : subscribeTopics)
-	            SubscribeToTopic(topic);
+		for (const auto& topic : subscribeTopics.as<JsonObject>())
+			client.subscribe(topic.value().as<const char*>());
 		}
 		else
 		{
-			Serial.print("Failed, rc=");
-			Serial.print(client.state());
-			Serial.println(" Retrying in 5 seconds...");
+			output.print("Failed, rc=");
+			output.print(client.state());
+			output.println(" Retrying in 5 seconds...");
 			delay(5000);
 		}
 	}

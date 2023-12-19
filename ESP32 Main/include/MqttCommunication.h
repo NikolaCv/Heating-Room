@@ -6,21 +6,20 @@
 #include <vector>
 #include "Sensors.h"
 #include "ESPMainSerialCommunication.h"
+#include "../src/Configuration/DefaultConfig.h"
 
 class MqttCommunication
 {
 	public:
 		MqttCommunication(WiFiClient wifiClient, const char* mqttServerIP, const int mqttPort,
 						  const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
-						  const int samplingRateSeconds, Sensors& sensors);
+						  const int samplingRateSeconds, Sensors& sensors, Stream& serial,
+						  const char* relayControlTopic, const char* configResetTopic, const char* configUpdateTopic);
 		void Setup(EspMainSerialCommunication serialComm);
-		void Reconnect();
+		void Reconnect(Stream& output);
 
-		void PublishMessage(String topic, String message, bool serialPrint = false);
+		void PublishMessage(String topic, String message);
 		void SubscribeCallback(char* topic, byte* payload, unsigned int length);
-
-		void AddSubscribeTopic(const char* topic);
-		void SubscribeToTopic(const char* topic);
 
 		void Loop();
 
@@ -28,15 +27,18 @@ class MqttCommunication
 		static void IRAM_ATTR InterruptTimerCallback();
 		void PublistDataPeriodically(void (&PublishSensorDataFunction)(MqttCommunication mqtt, Sensors sensors));
 
+		int GetSamplingRateSeconds() const;
+
 	private:
 		WiFiClient wifiClient;
 		PubSubClient client;
 		EspMainSerialCommunication serialComm;
+		Stream& serial;
 
 		const char *serverIP, *userName, *userPassword, *clientName;
 		const int port;
 
-		std::vector<const char*> subscribeTopics;
+		StaticJsonDocument<200> subscribeTopics;
 		
 		hw_timer_t* interruptTimer = nullptr;
 

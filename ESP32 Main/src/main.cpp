@@ -50,18 +50,9 @@ u svakom get sensor, i u svakom setup sensor treba proveriti da li je senzor pri
 
 */
 
-void SetupInterruptTimer();
-void IRAM_ATTR InterruptTimerCallback();
-void PublishSensorData();
-
 void ReconnectWiFi();
-void SetupMqtt(MqttCommunication mqtt);
+void SetupMqtt(MqttCommunication mqtt, EspMainSerialCommunication serialComm);
 void SetupSensors(Sensors sensors);
-
-void ReadFromFlapObserver();
-void SendToFlapObserver();
-
-hw_timer_t* mqttTimer = NULL;
 
 //Adafruit_SHT31 sht31 = Adafruit_SHT31();
 //HX711 scale;
@@ -70,7 +61,10 @@ Sensors sensors;
 WiFiClient espClient;
 MqttCommunication mqtt(espClient, Secrets::mqttServerIP, Secrets::mqttPort,
 					   "ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword,
-					   DefaultConfig::samplingRateSeconds, sensors);
+					   DefaultConfig::samplingRateSeconds, sensors, Serial,
+					   "heating_room/relay/control",
+					   "heating_room/config/reset",
+					   "heating_room/config/update");
 EspMainSerialCommunication serialComm(mqtt, DefaultConfig::vibrationResetMqttSeconds, millis(),
 									  "heating_room/flap/vibration",
 									  "heating_room/flap/blockade",
@@ -92,12 +86,11 @@ unsigned long currTime = millis();
 void setup()
 {	
 	Serial.begin(9600);
-
+	Serial.print('G'); // Get values from ESP Flap Observer, which triggers config values to be published
 	ReconnectWiFi();
 
 	SetupMqtt(mqtt, serialComm);
 	SetupSensors(sensors);
-	SetupInterruptTimer();
 }
 
 void loop()
@@ -106,20 +99,17 @@ void loop()
 
 	ReconnectWiFi();
 
-	mqtt.Reconnect();
+	mqtt.Reconnect(Serial);
 	mqtt.Loop();
 	mqtt.PublistDataPeriodically(PublishSensorData);
 
-	serialComm.ReadFromSerial();
+	serialComm.ReadFromSerial(Serial, currTime);
 }
 
 void SetupMqtt(MqttCommunication mqtt, EspMainSerialCommunication serialComm)
 {
 	mqtt.Setup(serialComm);
-	mqtt.AddSubscribeTopic("heating_room/relay/control");
-	mqtt.AddSubscribeTopic("heating_room/config/reset");
-	mqtt.AddSubscribeTopic("heating_room/config/update");
-	mqtt.Reconnect();
+	mqtt.Reconnect(Serial);
 }
 
 void SetupSensors(Sensors sensors)

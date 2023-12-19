@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include "SerialCommunication.h"
 #include "MqttCommunication.h"
+#include "../src/Configuration/DefaultConfig.h"
 
 class EspMainSerialCommunication : public SerialCommunication
 {
@@ -12,12 +13,15 @@ class EspMainSerialCommunication : public SerialCommunication
 									const char* flapVibrationTopic, const char* flapBlockadeTopic, const char* flapPositionTopic,
 									const char* configValuesTopic);
 		void ReadFromSerial(Stream& inputSerial, const unsigned int currTime);
-		void SendToSerial();
+
+		void SetVibrationConfigValue(const int newVibrationResetMqttSeconds);
+		void ResetVibrationConfigValue();
+		int GetVibrationConfigValue() const;
 
 	private:
 		MqttCommunication mqtt;
 
-		StaticJsonDocument<200> topics;
+		StaticJsonDocument<200> publishTopics;
 
 		int vibrationResetMqttSeconds;
 		unsigned int lastVibrationTime;

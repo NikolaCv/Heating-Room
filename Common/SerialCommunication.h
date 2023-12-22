@@ -10,7 +10,6 @@ class SerialCommunication
 		StaticJsonDocument<200> ReadJsonFromSerial(Stream& input) const;
 		void SendToSerial(Stream& outputSerial, char code, String message = "");
 		void SendJsonToSerial(Stream& outputSerial, char code, StaticJsonDocument<200> jsonDocument);
-		
 };
 
 #endif

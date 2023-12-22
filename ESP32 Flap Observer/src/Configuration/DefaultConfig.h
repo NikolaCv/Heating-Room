@@ -3,9 +3,9 @@
 
 namespace DefaultConfig
 {
-	int debounceMillisIR = 30;
-	int debounceMillisVibration = 10*1000;
-	int blockadeThreshold = 5;
+	extern int debounceIRMillis;
+	extern int debounceVibrationMillis;
+	extern int blockadeThreshold;
 }
 
 #endif

@@ -11,7 +11,7 @@
 #include "Configuration/Secrets.h"
 #include "Configuration/DefaultConfig.h"
 
-#include "Sensors.h"
+#include "SensorsMain.h"
 #include "MqttCommunication.h"
 #include "ESPMainSerialCommunication.h"
 
@@ -34,13 +34,6 @@
 /* TODO
 
 topics:
-heating_room/relay/control => sub
-heating_room/relay/state   => pub
-
-heating_room/config/reset  => sub
-heating_room/config/update => sub
-heating_room/config		   => pub
-
 Prilikom reseta/update treba da se prikazu vrednosti u HA (3 prikaza mozda, default, current, set new)
 request => main update, main prosledi klapni => klapna update i vrati => main publish na heating_room/config
 
@@ -51,68 +44,56 @@ u svakom get sensor, i u svakom setup sensor treba proveriti da li je senzor pri
 */
 
 void ReconnectWiFi();
-void SetupMqtt(MqttCommunication mqtt, EspMainSerialCommunication serialComm);
-void SetupSensors(Sensors sensors);
+void SetupSensors(SensorsMain& sensors);
+void PublishSensorData(MqttCommunication& mqtt, SensorsMain& sensors);
 
 //Adafruit_SHT31 sht31 = Adafruit_SHT31();
 //HX711 scale;
 
-Sensors sensors;
+SensorsMain sensors;
 WiFiClient espClient;
-MqttCommunication mqtt(espClient, Secrets::mqttServerIP, Secrets::mqttPort,
+PubSubClient mqttClient(espClient);
+
+MqttCommunication mqtt(mqttClient, Secrets::mqttServerIP, Secrets::mqttPort,
 					   "ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword,
 					   DefaultConfig::samplingRateSeconds, sensors, Serial,
-					   "heating_room/relay/control",
-					   "heating_room/config/reset",
-					   "heating_room/config/update");
-EspMainSerialCommunication serialComm(mqtt, DefaultConfig::vibrationResetMqttSeconds, millis(),
-									  "heating_room/flap/vibration",
-									  "heating_room/flap/blockade",
-									  "heating_room/flap/position",
-									  "heating_room/config");
+					   "heating_room/relay/control", // sub
+					   "heating_room/config/reset", // sub
+					   "heating_room/config/update"); // sub
 
-
-namespace NewConfig // FIXME trenutno placeholder, kada se dobiju novi podaci samo se stave u vec postojece variable
-{
-	int samplingRateSeconds;
-	int vibrationResetMqttSeconds;
-	int blockadeThreshold;
-	int debounceMillisVibration;
-	int debounceMillisIR;
-}
+EspMainSerialCommunication serialComm(DefaultConfig::vibrationResetMqttSeconds, millis(),
+									  "heating_room/flap/vibration", // pub
+									  "heating_room/flap/blockade", // pub
+									  "heating_room/flap/position", // pub
+									  "heating_room/config"); // pub
 
 unsigned long currTime = millis();
 
 void setup()
 {	
 	Serial.begin(9600);
-	Serial.print('G'); // Get values from ESP Flap Observer, which triggers config values to be published
 	ReconnectWiFi();
 
-	SetupMqtt(mqtt, serialComm);
+	mqtt.Setup(serialComm);
 	SetupSensors(sensors);
+
+	Serial.print('G'); // Get values from ESP Flap Observer, which triggers config values to be published
 }
 
 void loop()
 {
 	currTime = millis();
-
+	Serial.println(currTime);
 	ReconnectWiFi();
 
-	mqtt.Reconnect(Serial);
+	mqtt.Reconnect();
 	mqtt.Loop();
-	mqtt.PublistDataPeriodically(PublishSensorData);
+	mqtt.PublishDataPeriodically(PublishSensorData, sensors);
 
-	serialComm.ReadFromSerial(Serial, currTime);
+	serialComm.ReadFromSerial(Serial, mqtt, currTime);
 }
 
-void SetupMqtt(MqttCommunication mqtt, EspMainSerialCommunication serialComm)
-{
-	mqtt.Setup(serialComm);
-	mqtt.Reconnect(Serial);
-}
-
-void SetupSensors(Sensors sensors)
+void SetupSensors(SensorsMain& sensors)
 {
 	sensors.SetupCurrentSensor(0, ACS712_30A, ACS712_1_PIN);
 	sensors.SetupCurrentSensor(1, ACS712_30A, ACS712_2_PIN);
@@ -120,26 +101,29 @@ void SetupSensors(Sensors sensors)
 	sensors.SetupRelayPin(RELAY_PIN);
 }
 
-void PublishSensorData(MqttCommunication mqtt, Sensors sensors)
-{		
-	mqtt.PublishMessage("heating_room/burner", String(sensors.GetCurrent(0, 20), 2));
-	mqtt.PublishMessage("heating_room/pump", String(sensors.GetCurrent(1, 20), 2));
-
-	mqtt.PublishMessage("heating_room/furnace/temp", String(sensors.GetDallasTemp(5), 2));
+void PublishSensorData(MqttCommunication& mqtt, SensorsMain& sensors)
+{
+	mqtt.PublishMessage("heating_room/burner", String(sensors.GetCurrent(0, 10), 2));
+	mqtt.PublishMessage("heating_room/pump", String(sensors.GetCurrent(1, 10), 2));
+	
+	// blocking function, potentially split into 2 functions (requestTemperatures(), getTempCByIndex())
+	// first requestTemp, then after 1 second getTemp (then delay every other sensor, so all publish at the same time?)
+	mqtt.PublishMessage("heating_room/furnace/temp", String(sensors.GetDallasTemp(1), 2));
 }
 
 // Rewrite for offline data collecting
 void ReconnectWiFi() 
 {
-	if(WiFi.status() == WL_CONNECTED) return;
-
-	WiFi.begin(Secrets::wifiSSID, Secrets::wifiPassword);
-
-	while (WiFi.status() != WL_CONNECTED)
+	if(WiFi.status() != WL_CONNECTED)
 	{
-		Serial.println("Connecting to WiFi...");
-		delay(1000);
-	}
+		WiFi.begin(Secrets::wifiSSID, Secrets::wifiPassword);
 
-	Serial.println("Connected to WiFi");
+		while (WiFi.status() != WL_CONNECTED)
+		{
+			Serial.println("Connecting to WiFi...");
+			delay(1000);
+		}
+
+		Serial.println("Connected to WiFi");
+	}
 }

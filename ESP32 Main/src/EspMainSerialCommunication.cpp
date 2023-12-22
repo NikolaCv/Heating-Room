@@ -1,9 +1,10 @@
-#include "ESPMainSerialCommunication.h"
+#include "EspMainSerialCommunication.h"
+#include "MqttCommunication.h"
 
-EspMainSerialCommunication::EspMainSerialCommunication(MqttCommunication mqtt, const int vibrationResetMqttSeconds, const unsigned int lastVibrationTime,
+EspMainSerialCommunication::EspMainSerialCommunication(const int vibrationResetMqttSeconds, const unsigned int lastVibrationTime,
 													   const char* flapVibrationTopic, const char* flapBlockadeTopic, const char* flapPositionTopic,
 													   const char* configValuesTopic)
-: mqtt(mqtt), vibrationResetMqttSeconds(vibrationResetMqttSeconds), lastVibrationTime(lastVibrationTime) 
+: vibrationResetMqttSeconds(vibrationResetMqttSeconds), lastVibrationTime(lastVibrationTime) 
 {	
 	publishTopics["Vibration"] = flapVibrationTopic;
     publishTopics["Blockade"] = flapBlockadeTopic;
@@ -11,7 +12,7 @@ EspMainSerialCommunication::EspMainSerialCommunication(MqttCommunication mqtt, c
     publishTopics["Config"] = configValuesTopic;
 }
 
-void EspMainSerialCommunication::ReadFromSerial(Stream& inputSerial, const unsigned int currTime)
+void EspMainSerialCommunication::ReadFromSerial(Stream& inputSerial, MqttCommunication& mqtt, const unsigned int currTime)
 {
 	if(currTime - lastVibrationTime > vibrationResetMqttSeconds * 1000)
 		mqtt.PublishMessage(publishTopics["Vibration"], String(0));
@@ -38,7 +39,7 @@ void EspMainSerialCommunication::ReadFromSerial(Stream& inputSerial, const unsig
 
 			case 'X': // Blockade
 			{
-				blockade = 1;
+				if (!blockade) blockade = 1;
 				mqtt.PublishMessage(publishTopics["Blockade"], String(blockade));
 				break;
 			}

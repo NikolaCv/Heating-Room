@@ -1,5 +1,5 @@
-#ifndef SENSORS_H
-#define SENSORS_H
+#ifndef SENSORS_MAIN_H
+#define SENSORS_MAIN_H
 
 #include <Adafruit_SHT31.h>
 #include <HX711.h>
@@ -12,11 +12,11 @@
 
 #include "ACS712.h"
 
-class Sensors 
+class SensorsMain 
 {
 	public:
 		void SetupRelayPin(int relayPin);
-		void SetupCurrentSensor(const int sensorNumber, ACS712_type sensorType, const int sensorPin);
+		void SetupCurrentSensor(int sensorNumber, ACS712_type sensorType, int sensorPin);
 		void SetupDallasTempSensor(const int sensorPin);
 		void SetupSHT3xTempSensor();
 		void SetupHX711WeightSensor();

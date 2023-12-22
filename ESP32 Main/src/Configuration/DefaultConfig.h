@@ -3,8 +3,8 @@
 
 namespace DefaultConfig
 {
-	int samplingRateSeconds = 5;
-	int vibrationResetMqttSeconds = 1;
+	extern int samplingRateSeconds;
+	extern int vibrationResetMqttSeconds;
 }
 
 #endif

@@ -1,22 +1,24 @@
-#ifndef MQTTCOMMUNICATION_H
-#define MQTTCOMMUNICATION_H
+#ifndef MQTT_COMMUNICATION_H
+#define MQTT_COMMUNICATION_H
 
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <vector>
-#include "Sensors.h"
-#include "ESPMainSerialCommunication.h"
-#include "../src/Configuration/DefaultConfig.h"
+#include "SensorsMain.h"
+#include "EspMainSerialCommunication.h"
+#include "Configuration/DefaultConfig.h"
 
 class MqttCommunication
 {
 	public:
-		MqttCommunication(WiFiClient wifiClient, const char* mqttServerIP, const int mqttPort,
+		MqttCommunication() = default;
+		MqttCommunication(PubSubClient& mqttClient, const char* mqttServerIP, const int mqttPort,
 						  const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
-						  const int samplingRateSeconds, Sensors& sensors, Stream& serial,
+						  const int samplingRateSeconds, SensorsMain& sensors, Stream& serial,
 						  const char* relayControlTopic, const char* configResetTopic, const char* configUpdateTopic);
-		void Setup(EspMainSerialCommunication serialComm);
-		void Reconnect(Stream& output);
+
+		void Setup(EspMainSerialCommunication& serialComm);
+		void Reconnect();
 
 		void PublishMessage(String topic, String message);
 		void SubscribeCallback(char* topic, byte* payload, unsigned int length);
@@ -25,12 +27,11 @@ class MqttCommunication
 
 		void SetupInterruptTimer();
 		static void IRAM_ATTR InterruptTimerCallback();
-		void PublistDataPeriodically(void (&PublishSensorDataFunction)(MqttCommunication mqtt, Sensors sensors));
+		void PublishDataPeriodically(void (&PublishSensorDataFunction)(MqttCommunication& mqtt, SensorsMain& sensors), SensorsMain& sensors);
 
 		int GetSamplingRateSeconds() const;
 
 	private:
-		WiFiClient wifiClient;
 		PubSubClient client;
 		EspMainSerialCommunication serialComm;
 		Stream& serial;
@@ -43,9 +44,9 @@ class MqttCommunication
 		hw_timer_t* interruptTimer = nullptr;
 
 		static int samplingRateSeconds;
-		static bool publishData;
+		static volatile bool publishData;
 
-		Sensors sensors;
+		SensorsMain sensors;
 };
 
 #endif

@@ -15,14 +15,9 @@ EspFlapObserverSerialCommunication serialComm(sensors,
 											  DefaultConfig::debounceIRMillis,
 											  DefaultConfig::debounceVibrationMillis,
 											  DefaultConfig::blockadeThreshold);
-//volatile bool triggeredIR = false;
 
 unsigned long currTime = millis();
-/*
-void IRAM_ATTR InterruptCallback()
-{
-	triggeredIR = true;
-}*/
+
 
 void setup()
 {

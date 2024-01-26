@@ -12,7 +12,7 @@ EspMainSerialCommunication::EspMainSerialCommunication(const int vibrationResetM
     publishTopics["Config"] = configValuesTopic;
 }
 
-void EspMainSerialCommunication::ReadFromSerial(Stream& inputSerial, MqttCommunication& mqtt, const unsigned int currTime)
+void EspMainSerialCommunication::ReadFromSerial(Stream& inputSerial, MqttCommunication& mqtt, SensorsMain& sensors, const unsigned int currTime)
 {
 	if(currTime - lastVibrationTime > vibrationResetMqttSeconds * 1000)
 		mqtt.PublishMessage(publishTopics["Vibration"], String(0));
@@ -49,7 +49,13 @@ void EspMainSerialCommunication::ReadFromSerial(Stream& inputSerial, MqttCommuni
 				StaticJsonDocument<200> jsonDocument = ReadJsonFromSerial(inputSerial);
 				jsonDocument["samplingRateSeconds"] = mqtt.GetSamplingRateSeconds();
 				jsonDocument["vibrationResetMqttSeconds"] = GetVibrationConfigValue();
-				
+
+				StaticJsonDocument<200> sensorConfig = sensors.GetConfig();
+
+				// Add keys from sensorConfig to jsonDocument
+				for (JsonPair obj : sensorConfig.as<JsonObject>())
+					jsonDocument[obj.key()] = obj.value();
+
 				String jsonString;
 				serializeJson(jsonDocument, jsonString);
 				mqtt.PublishMessage(publishTopics["Config"], jsonString);

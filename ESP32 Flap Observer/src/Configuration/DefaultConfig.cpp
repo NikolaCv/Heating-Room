@@ -1,11 +1,8 @@
-#ifndef DEFAULTCONFIG_H
-#define DEFAULTCONFIG_H
+#include "DefaultConfig.h"
 
 namespace DefaultConfig
 {
-	int debounceIRMillis = 30;
-	int debounceVibrationMillis = 10*1000;
-	int blockadeThreshold = 5;
+	const int debounceIRMillis = 30;
+	const int debounceVibrationMillis = 10*1000;
+	const int blockadeThreshold = 5;
 }
-
-#endif

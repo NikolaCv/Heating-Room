@@ -3,9 +3,9 @@
 
 namespace DefaultConfig
 {
-	extern int debounceIRMillis;
-	extern int debounceVibrationMillis;
-	extern int blockadeThreshold;
+	extern const int debounceIRMillis;
+	extern const int debounceVibrationMillis;
+	extern const int blockadeThreshold;
 }
 
 #endif

@@ -29,26 +29,16 @@ void setup()
 	Serial.begin(9600);
 	sensors.SetupIRSensors();
 	sensors.SetupVibrationSensor(VIBRATION_PIN);	    
-	
-	/*for (int i = 0; i < numSensorsIR; ++i)
-	{
-        pinMode(irSensorPins[i], INPUT);
-		attachInterrupt(digitalPinToInterrupt(irSensorPins[i]), InterruptCallback, RISING);
-    }*/
 }
 
 void loop()
 {
 	currTime = millis();
-	/*if(triggeredIR)
-	{
-		Serial.println(currTime);
-		triggeredIR = false;
-	}*/
+
 	serialComm.ReadFromSerial(Serial);
 
 	serialComm.SendTriggeredIR(currTime, Serial);
 	serialComm.SendTriggeredVibration(currTime, Serial);
 
-	//delay(10);
+	delay(5);
 }

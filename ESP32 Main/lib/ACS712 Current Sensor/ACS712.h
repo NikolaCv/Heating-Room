@@ -6,7 +6,7 @@
 #include <Arduino.h>
 
 #define ADC_SCALE 4095.0	// Modified
-#define VREF 4.8	// Modified
+#define VREF 4.81	// Modified
 #define DEFAULT_FREQUENCY 50
 
 enum ACS712_type {ACS712_05B, ACS712_20A, ACS712_30A};
@@ -21,10 +21,11 @@ public:
 	void setSensitivity(float sens);
 	float getCurrentDC();
 	float getCurrentAC(uint16_t frequency = 50) const;	// Modified
+	void SetCurrentOffset(float currentOffset);
 
 private:
 	float currentOffset = 0;	// Added
-	float zero = 3000;	// Modified
+	float zero = 3181;	// Modified
 	float sensitivity;
 	uint8_t pin;
 };

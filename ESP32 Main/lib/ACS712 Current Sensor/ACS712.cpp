@@ -35,7 +35,6 @@ int ACS712::calibrateAC() {
 
 	uint32_t Isum = 0;
 	int32_t Inow;
-
 	for(int i = 0; i < 100; ++i)
 	{
 		Inow = analogRead(pin) - zero;
@@ -43,7 +42,6 @@ int ACS712::calibrateAC() {
 	}
 
 	currentOffset = sqrt(Isum / 100) / ADC_SCALE * VREF / sensitivity;
-
 	return zero;
 }
 
@@ -70,13 +68,19 @@ float ACS712::getCurrentAC(uint16_t frequency) const {
 
 	uint32_t Isum = 0, measurements_count = 0;
 	int32_t Inow;
-
 	while (micros() - t_start < period) {
 		Inow = analogRead(pin) - zero;
+
 		Isum += Inow*Inow;
 		measurements_count++;
 	}
 
 	float Irms = sqrt(Isum / measurements_count) / ADC_SCALE * VREF / sensitivity;
+
 	return Irms - currentOffset;
+}
+
+void ACS712::SetCurrentOffset(float currentOffset)
+{
+	this->currentOffset=currentOffset;
 }

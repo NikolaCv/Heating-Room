@@ -8,14 +8,17 @@
 #include "EspMainSerialCommunication.h"
 #include "Configuration/DefaultConfig.h"
 
+class EspMainSerialCommunication;
+
 class MqttCommunication
 {
 	public:
-		MqttCommunication() = default;
 		MqttCommunication(PubSubClient& mqttClient, const char* mqttServerIP, const int mqttPort,
 						  const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
-						  const int samplingRateSeconds, SensorsMain& sensors, Stream& serial,
-						  const char* relayControlTopic, const char* configResetTopic, const char* configUpdateTopic);
+						  const float samplingRateSeconds, SensorsMain& sensors, Stream& serial,
+						  EspMainSerialCommunication& serialComm,
+						  const char* relayStateTopic, const char* relayControlTopic,
+						  const char* configResetTopic, const char* configUpdateTopic);
 
 		void Setup(EspMainSerialCommunication& serialComm);
 		void Reconnect();
@@ -32,21 +35,21 @@ class MqttCommunication
 		int GetSamplingRateSeconds() const;
 
 	private:
-		PubSubClient client;
-		EspMainSerialCommunication serialComm;
+		PubSubClient& client;
+		EspMainSerialCommunication& serialComm;
 		Stream& serial;
 
 		const char *serverIP, *userName, *userPassword, *clientName;
 		const int port;
 
-		StaticJsonDocument<200> subscribeTopics;
+		StaticJsonDocument<200> subscribeTopics, publishTopics;
 		
 		hw_timer_t* interruptTimer = nullptr;
 
-		static int samplingRateSeconds;
+		static float samplingRateSeconds;
 		static volatile bool publishData;
 
-		SensorsMain sensors;
+		SensorsMain& sensors;
 };
 
 #endif

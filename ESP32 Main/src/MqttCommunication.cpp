@@ -1,19 +1,22 @@
 #include "MqttCommunication.h"
 
-int MqttCommunication::samplingRateSeconds = 0;
+float MqttCommunication::samplingRateSeconds = 0;
 volatile bool MqttCommunication::publishData = true;
 
 MqttCommunication::MqttCommunication(PubSubClient& mqttClient, const char* mqttServerIP, const int mqttPort,
 									const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
-									const int samplingRateSeconds, SensorsMain& sensors, Stream& serial,
-						  			const char* relayControlTopic, const char* configResetTopic, const char* configUpdateTopic)
+									const float samplingRateSeconds, SensorsMain& sensors, Stream& serial,
+						  			EspMainSerialCommunication& serialComm,
+									const char* relayStateTopic, const char* relayControlTopic,
+									const char* configResetTopic, const char* configUpdateTopic)
 : client(mqttClient), serverIP(mqttServerIP), port(mqttPort),
   clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword),
-  sensors(sensors), serial(serial)
+  sensors(sensors), serial(serial), serialComm(serialComm)
 {
 	this->samplingRateSeconds = samplingRateSeconds;
 	publishData = false;
 	
+	publishTopics["Relay State"] = relayStateTopic;
 	subscribeTopics["Relay Control"] = relayControlTopic;
 	subscribeTopics["Config Reset"] = configResetTopic;
 	subscribeTopics["Config Update"] = configUpdateTopic;
@@ -51,7 +54,7 @@ void MqttCommunication::Reconnect()
 		{
 			serial.print("Failed, rc=");
 			serial.print(client.state());
-			serial.println(" Retrying in 5 seconds...");
+			serial.println(", retrying in 5 seconds...");
 			delay(5000);
 		}
 	}
@@ -68,17 +71,19 @@ void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned i
 	String message;
 	for (unsigned int i = 0; i < length; i++)
 		message += (char)payload[i];
-
+	
 	if (strcmp(topic, subscribeTopics["Relay Control"]) == 0)
 	{
-		// TODO
+		sensors.ToggleRelayState();
+		PublishMessage(publishTopics["Relay State"], String(sensors.GetRelayState()));
 	}
 	else if (strcmp(topic, subscribeTopics["Config Reset"]) == 0)
 	{
 		samplingRateSeconds = DefaultConfig::samplingRateSeconds;
-		serialComm.SendToSerial(serial, 'R');
 		serialComm.ResetVibrationConfigValue();
-		
+		sensors.ResetConfig();
+		serialComm.SendToSerial(serial, 'R');
+
 		timerAlarmWrite(interruptTimer, samplingRateSeconds * 1000000, true);
 	}
 	else if (strcmp(topic, subscribeTopics["Config Update"]) == 0)
@@ -88,13 +93,22 @@ void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned i
 
 		samplingRateSeconds = jsonDocument["samplingRateSeconds"];
 		serialComm.SetVibrationConfigValue(jsonDocument["vibrationResetMqttSeconds"]);
-
-		timerAlarmWrite(interruptTimer, samplingRateSeconds * 1000000, true);
+		sensors.SetConfig(jsonDocument["loadCellCalibrationFactor"], jsonDocument["loadCellOffset"], jsonDocument["emptyTankWeight"],
+						  jsonDocument["furnaceOnThreshold"], jsonDocument["furnaceOffThreshold"]);
 
 		jsonDocument.remove("samplingRateSeconds");
 		jsonDocument.remove("vibrationResetMqttSeconds");
 
-		serialComm.SendJsonToSerial(serial, 'S', jsonDocument);		
+		jsonDocument.remove("loadCellCalibrationFactor");
+		jsonDocument.remove("loadCellOffset");
+		jsonDocument.remove("emptyTankWeight");
+		
+		jsonDocument.remove("furnaceOnThreshold");
+		jsonDocument.remove("furnaceOffThreshold");
+		
+		// Triggers ESP Flap Observer to send its config values back, which triggers all configs to be published
+		serialComm.SendJsonToSerial(serial, 'S', jsonDocument);
+		timerAlarmWrite(interruptTimer, samplingRateSeconds * 1000000, true);
 	}
 }
 

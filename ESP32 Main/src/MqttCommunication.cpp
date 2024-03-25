@@ -3,32 +3,30 @@
 float MqttCommunication::samplingRateSeconds = 0;
 volatile bool MqttCommunication::publishData = true;
 
-MqttCommunication::MqttCommunication(PubSubClient& mqttClient, const char* mqttServerIP, const int mqttPort,
-									const char* mqttClientName, const char* mqttUserName, const char* mqttUserPassword,
-									const float samplingRateSeconds, SensorsMain& sensors, Stream& serial,
-						  			EspMainSerialCommunication& serialComm,
-									const char* relayStateTopic, const char* relayControlTopic,
-									const char* configResetTopic, const char* configUpdateTopic)
-: client(mqttClient), serverIP(mqttServerIP), port(mqttPort),
-  clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword),
-  sensors(sensors), serial(serial), serialComm(serialComm)
+MqttCommunication::MqttCommunication(PubSubClient &mqttClient, const char *mqttServerIP, const int mqttPort,
+									 const char *mqttClientName, const char *mqttUserName, const char *mqttUserPassword,
+									 const float samplingRateSeconds, SensorsMain &sensors, Stream &serial,
+									 EspMainSerialCommunication &serialComm,
+									 const char *relayStateTopic, const char *relayControlTopic,
+									 const char *configResetTopic, const char *configUpdateTopic)
+	: client(mqttClient), serverIP(mqttServerIP), port(mqttPort),
+	  clientName(mqttClientName), userName(mqttUserName), userPassword(mqttUserPassword),
+	  sensors(sensors), serial(serial), serialComm(serialComm),
+	  relayStateTopic(relayStateTopic), relayControlTopic(relayControlTopic),
+	  configResetTopic(configResetTopic), configUpdateTopic(configUpdateTopic)
 {
 	this->samplingRateSeconds = samplingRateSeconds;
 	publishData = false;
-	
-	publishTopics["Relay State"] = relayStateTopic;
-	subscribeTopics["Relay Control"] = relayControlTopic;
-	subscribeTopics["Config Reset"] = configResetTopic;
-	subscribeTopics["Config Update"] = configUpdateTopic;
 }
 
-void MqttCommunication::Setup(EspMainSerialCommunication& serialComm)
+void MqttCommunication::Setup(EspMainSerialCommunication &serialComm)
 {
 	this->serialComm = serialComm;
 
 	client.setServer(serverIP, port);
 	client.setKeepAlive(60);
-	auto callbackWrapper = [this](char* topic, byte* payload, unsigned int length) {
+	auto callbackWrapper = [this](char *topic, byte *payload, unsigned int length)
+	{
 		this->SubscribeCallback(topic, payload, length);
 	};
 
@@ -46,9 +44,10 @@ void MqttCommunication::Reconnect()
 		if (client.connect(clientName, userName, userPassword))
 		{
 			serial.println("Connected to MQTT broker");
-			
-			for (const auto& topic : subscribeTopics.as<JsonObject>())
-				client.subscribe(topic.value().as<const char*>());
+
+			client.subscribe(relayControlTopic);
+			client.subscribe(configResetTopic);
+			client.subscribe(configUpdateTopic);
 		}
 		else
 		{
@@ -66,18 +65,18 @@ void MqttCommunication::PublishMessage(String topic, String message)
 		client.publish(topic.c_str(), message.c_str());
 }
 
-void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned int length)
+void MqttCommunication::SubscribeCallback(char *topic, byte *payload, unsigned int length)
 {
 	String message;
 	for (unsigned int i = 0; i < length; i++)
 		message += (char)payload[i];
-	
-	if (strcmp(topic, subscribeTopics["Relay Control"]) == 0)
+
+	if (strcmp(topic, relayControlTopic) == 0)
 	{
-		sensors.ToggleRelayState();
-		PublishMessage(publishTopics["Relay State"], String(sensors.GetRelayState()));
+		sensors.ToggleRelay();
+		PublishMessage(relayStateTopic, String(sensors.GetRelayState()));
 	}
-	else if (strcmp(topic, subscribeTopics["Config Reset"]) == 0)
+	else if (strcmp(topic, configResetTopic) == 0)
 	{
 		samplingRateSeconds = DefaultConfig::samplingRateSeconds;
 		serialComm.ResetVibrationConfigValue();
@@ -86,7 +85,7 @@ void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned i
 
 		timerAlarmWrite(interruptTimer, samplingRateSeconds * 1000000, true);
 	}
-	else if (strcmp(topic, subscribeTopics["Config Update"]) == 0)
+	else if (strcmp(topic, configUpdateTopic) == 0)
 	{
 		StaticJsonDocument<200> jsonDocument;
 		deserializeJson(jsonDocument, message);
@@ -102,10 +101,10 @@ void MqttCommunication::SubscribeCallback(char* topic, byte* payload, unsigned i
 		jsonDocument.remove("loadCellCalibrationFactor");
 		jsonDocument.remove("loadCellOffset");
 		jsonDocument.remove("emptyTankWeight");
-		
+
 		jsonDocument.remove("furnaceOnThreshold");
 		jsonDocument.remove("furnaceOffThreshold");
-		
+
 		// Triggers ESP Flap Observer to send its config values back, which triggers all configs to be published
 		serialComm.SendJsonToSerial(serial, 'S', jsonDocument);
 		timerAlarmWrite(interruptTimer, samplingRateSeconds * 1000000, true);
@@ -130,8 +129,8 @@ void IRAM_ATTR MqttCommunication::InterruptTimerCallback()
 	publishData = true;
 }
 
-void MqttCommunication::PublishDataPeriodically(void (&PublishSensorDataFunction)(MqttCommunication& mqtt, SensorsMain& sensors), SensorsMain& sensors)
-{	
+void MqttCommunication::PublishDataPeriodically(void (&PublishSensorDataFunction)(MqttCommunication &mqtt, SensorsMain &sensors), SensorsMain &sensors)
+{
 	if (publishData)
 	{
 		PublishSensorDataFunction(*this, sensors);
@@ -141,5 +140,5 @@ void MqttCommunication::PublishDataPeriodically(void (&PublishSensorDataFunction
 
 int MqttCommunication::GetSamplingRateSeconds() const
 {
-    return samplingRateSeconds;
+	return samplingRateSeconds;
 }

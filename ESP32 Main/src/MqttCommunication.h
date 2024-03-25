@@ -42,7 +42,10 @@ class MqttCommunication
 		const char *serverIP, *userName, *userPassword, *clientName;
 		const int port;
 
-		StaticJsonDocument<200> subscribeTopics, publishTopics;
+		const char *relayStateTopic;
+		const char *relayControlTopic;
+		const char *configResetTopic;
+		const char *configUpdateTopic;
 		
 		hw_timer_t* interruptTimer = nullptr;
 

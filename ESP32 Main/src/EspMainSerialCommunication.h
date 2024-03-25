@@ -21,8 +21,11 @@ class EspMainSerialCommunication : public SerialCommunication
 		void ResetVibrationConfigValue();
 		int GetVibrationConfigValue() const;
 
-	private:
-		StaticJsonDocument<200> publishTopics;
+	private:	
+		const char* flapVibrationTopic;
+		const char* flapBlockadeTopic;
+		const char* flapPositionTopic;
+		const char* configValuesTopic;
 
 		int vibrationResetMqttSeconds;
 		unsigned int lastVibrationTime;

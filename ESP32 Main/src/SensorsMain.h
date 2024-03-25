@@ -29,7 +29,7 @@ class SensorsMain
 
 		float CalculateConsumption();
 		
-		void ToggleRelayState();
+		void ToggleRelay();
 		void UpdateRelayState();
 
 		void SetRelayOutput();

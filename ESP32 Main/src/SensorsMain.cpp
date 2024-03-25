@@ -71,7 +71,7 @@ void SensorsMain::SetupRelay(const int relayPin)
 }
 
 
-void SensorsMain::ToggleRelayState()
+void SensorsMain::ToggleRelay()
 {
 	relayState = !relayState;
 	SetRelayOutput();

@@ -7,8 +7,8 @@ namespace DefaultConfig
 
 	const float loadCellCalibrationFactor = -24.29624;
 	const float loadCellOffset = 155273;
-	const float emptyTankWeight = 44*1000;
-	
-	const float furnaceOnThreshold = 0.5;
-	const float furnaceOffThreshold = 0.0;
+	const float emptyTankWeight = 44 * 1000;
+
+	const float furnaceOnThreshold = 0.25;
+	const float furnaceOffThreshold = 0.05;
 }

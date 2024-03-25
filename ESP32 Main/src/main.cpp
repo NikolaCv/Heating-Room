@@ -23,8 +23,8 @@
 #define ACS712_1_PIN 34
 #define ACS712_2_PIN 39
 
-float currentOffset1 = 1.0035;
-float currentOffset2 = 0.9855;
+float currentOffset1 = 0;
+float currentOffset2 = 0;
 
 /*
 // mSD card reader pins
@@ -35,8 +35,8 @@ float currentOffset2 = 0.9855;
 */
 
 void ReconnectWiFi();
-void SetupSensors(SensorsMain& sensors);
-void PublishSensorData(MqttCommunication& mqtt, SensorsMain& sensors);
+void SetupSensors(SensorsMain &sensors);
+void PublishSensorData(MqttCommunication &mqtt, SensorsMain &sensors);
 
 SensorsMain sensors(DefaultConfig::loadCellCalibrationFactor, DefaultConfig::loadCellOffset, DefaultConfig::emptyTankWeight,
 					DefaultConfig::furnaceOnThreshold, DefaultConfig::furnaceOffThreshold);
@@ -45,25 +45,23 @@ PubSubClient mqttClient(espClient);
 
 EspMainSerialCommunication serialComm(DefaultConfig::vibrationResetMqttSeconds, millis(),
 									  "heating_room/flap/vibration", // pub
-									  "heating_room/flap/blockade", // pub
-									  "heating_room/flap/position", // pub
-									  "heating_room/config"); // pub
+									  "heating_room/flap/blockade",	 // pub
+									  "heating_room/flap/position",	 // pub
+									  "heating_room/config");		 // pub
 
 MqttCommunication mqtt(mqttClient, Secrets::mqttServerIP, Secrets::mqttPort,
 					   "ESP32 Heating Room", Secrets::mqttUserName, Secrets::mqttUserPassword,
 					   DefaultConfig::samplingRateSeconds, sensors, Serial,
 					   serialComm,
-					   "heating_room/relay/state", // pub
-					   "heating_room/relay/control", // sub
-					   "heating_room/config/reset", // sub
+					   "heating_room/relay/state",	  // pub
+					   "heating_room/relay/control",  // sub
+					   "heating_room/config/reset",	  // sub
 					   "heating_room/config/update"); // sub
-
-
 
 unsigned long currTime = millis();
 
 void setup()
-{	
+{
 	delay(3000);
 	Serial.begin(9600);
 	ReconnectWiFi();
@@ -74,11 +72,10 @@ void setup()
 	Serial.print('G'); // Get values from ESP Flap Observer, which triggers config values to be published
 }
 
-
 void loop()
 {
 	currTime = millis();
-	
+
 	ReconnectWiFi();
 
 	mqtt.Reconnect();
@@ -86,14 +83,14 @@ void loop()
 	mqtt.PublishDataPeriodically(PublishSensorData, sensors);
 
 	serialComm.ReadFromSerial(Serial, mqtt, sensors, currTime);
-
-	//Serial.println(sensors.GetWeightGrams(1)); // For Calibration
+	GetAnalogCalibrationValues(50);
+	GetCurrentCalibrationValues(50);
+	// Serial.println(sensors.GetWeightGrams(1)); // For Calibration
 
 	delay(25);
 }
 
-
-void SetupSensors(SensorsMain& sensors)
+void SetupSensors(SensorsMain &sensors)
 {
 	sensors.SetupCurrentSensor(0, ACS712_30A, ACS712_1_PIN, currentOffset1);
 	sensors.SetupCurrentSensor(1, ACS712_30A, ACS712_2_PIN, currentOffset2);
@@ -103,8 +100,7 @@ void SetupSensors(SensorsMain& sensors)
 	sensors.SetupHX711WeightSensor(LOAD_CELL_DOUT, LOAD_CELL_SCK);
 }
 
-
-void PublishSensorData(MqttCommunication& mqtt, SensorsMain& sensors)
+void PublishSensorData(MqttCommunication &mqtt, SensorsMain &sensors)
 {
 	std::pair<float, float> result = sensors.GetCurrent(0, 12);
 	mqtt.PublishMessage("heating_room/burner/filtered", String(result.first, 3));
@@ -123,28 +119,29 @@ void PublishSensorData(MqttCommunication& mqtt, SensorsMain& sensors)
 	}
 	// Dallas blocking function, potentially split into 2 functions (requestTemperatures(), getTempCByIndex())
 	float temp = sensors.GetDallasTemp(5);
-	if (temp > 0) mqtt.PublishMessage("heating_room/furnace/temp", String(temp, 2));
-
+	if (temp > 0)
+		mqtt.PublishMessage("heating_room/furnace/temp", String(temp, 2));
 
 	result = sensors.GetSHT3xTempHumidity(1);
-	if(result.first != -77)
+	if (result.first != -77)
 	{
 		mqtt.PublishMessage("heating_room/outside/temp", String(result.first, 2));
 		mqtt.PublishMessage("heating_room/outside/humidity", String(result.second, 2));
 	}
 
-	float weight = sensors.GetPelletWeightGrams(8)/1000.0;
-	if (weight > -5) mqtt.PublishMessage("heating_room/tank", String(weight, 3));
+	float weight = sensors.GetPelletWeightGrams(8) / 1000.0;
+	if (weight > -5)
+		mqtt.PublishMessage("heating_room/tank", String(weight, 3));
 
-	float consumption = sensors.CalculateConsumption()/1000.0;
-	if (consumption) mqtt.PublishMessage("heating_room/consumption", String(consumption, 3));
+	float consumption = sensors.CalculateConsumption() / 1000.0;
+	if (consumption)
+		mqtt.PublishMessage("heating_room/consumption", String(consumption, 3));
 }
 
-
 // Rewrite for offline data collecting if needed
-void ReconnectWiFi() 
+void ReconnectWiFi()
 {
-	if(WiFi.status() != WL_CONNECTED)
+	if (WiFi.status() != WL_CONNECTED)
 	{
 		WiFi.begin(Secrets::wifiSSID, Secrets::wifiPassword);
 
@@ -155,5 +152,37 @@ void ReconnectWiFi()
 		}
 
 		Serial.println("Connected to WiFi");
+	}
+}
+
+void GetAnalogCalibrationValues(int n)
+{
+	while (1)
+	{
+		Serial.println("senzor1 start");
+		for (int i = 0; i < n; ++i)
+			Serial.println(analogRead(ACS712_1_PIN));
+
+		Serial.println("senzor1 end");
+		Serial.println("senzor2 start");
+		for (int i = 0; i < n; ++i)
+			Serial.println(analogRead(ACS712_1_PIN));
+		Serial.println("senzor2 end");
+	}
+}
+
+void GetCurrentCalibrationValues(int n)
+{
+	while (1)
+	{
+		Serial.println("senzor1 start");
+		for (int i = 0; i < n; ++i)
+			Serial.println(sensors.GetCurrent(0, 12).second);
+
+		Serial.println("senzor1 end");
+		Serial.println("senzor2 start");
+		for (int i = 0; i < n; ++i)
+			Serial.println(sensors.GetCurrent(1, 12).second);
+		Serial.println("senzor2 end");
 	}
 }

@@ -12,7 +12,6 @@ void EspFlapObserverSerialCommunication::ReadFromSerial(Stream &inputSerial)
 	while (Serial.available() > 0)
 	{
 		char incomingChar = Serial.read();
-		Serial.println(incomingChar);
 
 		switch (incomingChar)
 		{
@@ -42,7 +41,6 @@ void EspFlapObserverSerialCommunication::ReadFromSerial(Stream &inputSerial)
 
 void EspFlapObserverSerialCommunication::SendConfigValues(Stream& serial)
 {
-	serial.print('S');
 	StaticJsonDocument<200> jsonDocument;
 	jsonDocument["debounceIRMillis"] = debounceIRMillis;
 	jsonDocument["debounceVibrationMillis"] = debounceVibrationMillis;
